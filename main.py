@@ -1,5 +1,11 @@
 import telebot
 from telebot import types
+from pathlib import Path
+import numpy as np
+from PIL import Image
+from docopt import docopt
+from pixelate import pixelate
+import os
 
 # Укажите здесь токен вашего бота
 API_TOKEN = '8174585257:AAHIAJbSk_SqWaf-2MD-wTECq_aVi9INGcs'
@@ -63,15 +69,71 @@ def handle_text(message):
 def handle_photo(message):
     user_id = message.chat.id
 
-    # Скачивание изображения на сервер
+    # Получаем информацию о файле
     file_info = bot.get_file(message.photo[-1].file_id)
     downloaded_file = bot.download_file(file_info.file_path)
+    """
+      # Проверяем подпись к изображению
+    if message.caption:
+        photo_caption = message.caption  # Подпись к изображению от пользователя
+        # Убираем запрещенные символы из названия
+        photo_caption = re.sub(r'[^\w\s-]', '', photo_caption).strip().replace(' ', '_')
+    else:
+        photo_caption = str(uuid.uuid4())  # Генерируем уникальный ключ
 
-    user_data[user_id]['image'] = downloaded_file
-
-    # Здесь будет вызов функции для обработки изображения
+    # Уведомляем пользователя
     bot.send_message(user_id, "Изображение успешно загружено. Начинаю обработку...")
-    # TODO: вызов функции для пикселизации и анализа изображения
+
+    # Определяем путь до директории пользователя
+    user_folder = f'photos/{user_id}'
+    # Проверяем, существует ли директория, и создаём её при отсутствии
+    if not os.path.exists(user_folder):
+        os.makedirs(user_folder)
+
+    # Путь до файла, изначальное имя
+    file_path = os.path.join(user_folder, f'{photo_caption}.jpg')
+
+    # Если файл с таким именем уже существует, добавляем числовой индекс к имени
+    index = 1
+    while os.path.exists(file_path):
+        file_path = os.path.join(user_folder, f'{photo_caption}_{index}.jpg')
+        index += 1
+
+    # Сохраняем изображение в файл
+    with open(file_path, 'wb') as file:
+        file.write(downloaded_file)
+
+    # Сообщаем об успешном сохранении
+    bot.send_message(user_id, f"Изображение сохранено под именем: {os.path.basename(file_path)}")
+    """
+    # Сохраняем изображение во временный файл
+    temp_file_path = 'temp_image.jpg'
+    with open(temp_file_path, 'wb') as temp_file:
+        temp_file.write(downloaded_file)
+
+    # Сохраняем путь к изображению в user_data
+    user_data[user_id] = {}
+    user_data[user_id]['image'] = temp_file_path
+
+    bot.send_message(user_id, "Изображение успешно загружено. Начинаю обработку...")
+
+    # Обработка изображения
+    image = Image.open(temp_file_path).convert('RGB')
+    pixelated_image = pixelate(image, 16)
+
+    # Сохранение обработанного изображения
+    output_path = 'pixelated_image.jpg'
+    pixelated_image.save(output_path)
+
+    # Отправка обработанного изображения
+    with open(output_path, 'rb') as output_file:
+        bot.send_photo(user_id, output_file)
+
+    # Удаление временных файлов
+    os.remove(temp_file_path)
+    os.remove(output_path)
+
+
 
 
 # Обработчик выбора доступных ниток
@@ -94,6 +156,7 @@ def default_handler(message):
         message.chat.id,
         "Я вас не понял. Попробуйте воспользоваться кнопками для взаимодействия."
     )
+
 
 
 # Запуск бота
