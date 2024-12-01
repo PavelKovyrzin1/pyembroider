@@ -1,11 +1,13 @@
-import os
-import telebot
-from telebot import types
 import uuid
 import re
-from pixelate import pixelate
 from io import BytesIO
+import telebot
+from telebot import types
 from PIL import Image
+from pixelate import pixelate
+import os
+from color_show import show_color, save_color_sample, create_color_grid
+from color_data import floss_colors, color_groups, RGB
 
 # Укажите здесь токен вашего бота
 API_TOKEN = '7860027518:AAF-l2_PMQh_QwiFPwmsNfWit1NXIP4WCyM'
@@ -14,6 +16,9 @@ bot = telebot.TeleBot(API_TOKEN)
 
 # Словарь для хранения данных пользователей (в целях демонстрации)
 user_data = {}
+
+# Словарь для сохранения выбранных кодов цветов
+available_colors = {}
 
 
 # Обработчик команды /start
@@ -46,10 +51,10 @@ def help_command(message):
 def main_menu_keyboard():
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     upload_button = types.KeyboardButton("📤 Загрузить изображение")
-    select_colors_button = types.KeyboardButton("🎨 Ввести доступные цвета")
     view_photos_button = types.KeyboardButton("📂 Посмотреть мои фото")
-    menu_button = types.KeyboardButton("🏠 Меню")
-    keyboard.add(upload_button, select_colors_button, view_photos_button, menu_button)
+    add_colors_button = types.KeyboardButton("🌈 Добавить цвета")
+    show_colors_button = types.KeyboardButton("✅ Показать добавленные цвета")
+    keyboard.add(upload_button, view_photos_button, add_colors_button, show_colors_button)
     return keyboard
 
 
@@ -60,12 +65,12 @@ def handle_text(message):
 
     if message.text == "📤 Загрузить изображение":
         bot.send_message(user_id, "Отправьте мне изображение, которое вы хотите преобразовать в схему.")
-    elif message.text == "🎨 Ввести доступные цвета":
-        bot.send_message(user_id, "Напишите список доступных цветов ниток (например: красный, синий, зеленый).")
     elif message.text == "📂 Посмотреть мои фото":
         send_photo_list(user_id)
-    elif message.text == "🏠 Меню":
-        bot.send_message(user_id, "Вы вернулись в главное меню.", reply_markup=main_menu_keyboard())
+    elif message.text == "🌈 Добавить цвета":
+        add_color_brands(message)
+    elif message.text == "✅ Показать добавленные цвета":
+        show_color_brands(message)
     else:
         bot.send_message(user_id, "Пожалуйста, используйте кнопки меню для взаимодействия.")
 
@@ -115,8 +120,15 @@ def handle_photo(message):
     # Открываем изображение с помощью PIL
     image = Image.open(BytesIO(downloaded_file))
 
+    available_rgbs = []
+    for brand in ('DMC', 'Anchor', 'Cosmo'):
+        if user_id not in available_colors:
+            break
+        for color in available_colors[user_id][brand]:
+            available_rgbs.append(color['rgb'])
+
     # Пикселизируем изображение
-    pixelated_image = pixelate(image)
+    pixelated_image = pixelate(image, available_colors=RGB)
 
     # Сохраняем пикселизированное изображение во временный файл
     output_io = BytesIO()
@@ -124,9 +136,169 @@ def handle_photo(message):
     output_io.seek(0)
 
     # Отправляем пикселизированное изображение пользователю
+    bot.send_message(user_id, "Схема на основе всех возможных цветов:")
     bot.send_photo(user_id, output_io)
 
-    # TODO: вызов функции для пикселизации и анализа изображения
+
+
+    # Пикселизация только по доступным цветам
+    if not available_rgbs:
+        bot.send_message(user_id, "Сформировать схему на основе ваших цветов невозможно. Вы не добавили ни одного цвета.")
+        return
+
+    pixelated_image = pixelate(image, available_colors=available_rgbs)
+
+    # Сохраняем пикселизированное изображение во временный файл
+    output_io = BytesIO()
+    pixelated_image.save(output_io, format='JPEG')
+    output_io.seek(0)
+
+    # Отправляем пикселизированное изображение пользователю
+    bot.send_message(user_id, "Схема на основе Ваших цветов:")
+    bot.send_photo(user_id, output_io)
+
+
+def add_color_brands(message):
+    """Показывает доступные бренды ниток"""
+    keyboard = types.InlineKeyboardMarkup()
+    for brand in floss_colors.keys():
+        callback_button = types.InlineKeyboardButton(text=brand, callback_data=f"brand_{brand}")
+        keyboard.add(callback_button)
+
+    bot.send_message(message.chat.id, "Выберите бренд ниток:", reply_markup=keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('brand_'))
+def handle_brand_selection(call):
+    """Обработчик выбора бренда"""
+    brand = call.data.split('_')[1]
+    show_color_groups(call.message, brand)
+
+
+def show_color_groups(message, brand):
+    """Показывает группы цветов для выбранного бренда"""
+    keyboard = types.InlineKeyboardMarkup()
+    for group_name in color_groups.keys():
+        callback_button = types.InlineKeyboardButton(
+            text=group_name,
+            callback_data=f"group_{brand}_{group_name}"
+        )
+        keyboard.add(callback_button)
+
+    bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        text=f"Выберите группу цветов для бренда {brand}:",
+        reply_markup=keyboard
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('group_'))
+def handle_group_selection(call):
+    """Обработчик выбора группы цветов"""
+    _, brand, group = call.data.split('_')
+
+    # Создаем временный файл для образца цвета
+    temp_dir = 'temp_colors'
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+    # Собираем цвета выбранной группы
+    group_colors = []
+    keywords = color_groups.get(group, [])  # извлечь ключевые слова группы
+
+    for color_name, color_data in floss_colors[brand].items():
+        # Проверяем, содержит ли название цвета любое из ключевых слов группы
+        if any(keyword in color_name for keyword in keywords):
+            group_colors.append({
+                'name': color_name,
+                'code': color_data['code'],
+                'rgb': color_data['rgb']
+            })
+
+    # Проверяем, есть ли найденные цвета
+    if group_colors:
+        # Создаем сетку цветов
+        output_path = f"{temp_dir}/{brand}_{group}.png"
+        create_color_grid(brand, group_colors, output_path)
+
+        # Отправляем изображение с сеткой цветов
+        with open(output_path, 'rb') as photo:
+            caption = f"Цвета группы '{group}' бренда {brand}. Выберите коды цветов:"
+            message = bot.send_photo(call.message.chat.id, photo, caption=caption)
+
+            # Создаем клавиатуру для выбора кодов цветов
+            color_keyboard = types.InlineKeyboardMarkup()
+            for color in group_colors:
+                color_button = types.InlineKeyboardButton(
+                    text=color['name'] + " " + color['code'],
+                    callback_data=f"color_{brand}_{color['code']}_{color['name']}"
+                )
+                color_keyboard.add(color_button)
+
+            bot.send_message(call.message.chat.id, "Выберите коды цветов:", reply_markup=color_keyboard)
+
+        # Удаляем временный файл
+        os.remove(output_path)
+    else:
+        bot.send_message(call.message.chat.id, f"Цвета группы '{group}' не найдены для бренда {brand}")
+
+    # Удаляем уведомление о нажатии кнопки
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('color_'))
+def handle_color_selection(call):
+    """Обработчик выбора кода цвета"""
+    color_brand = call.data.split('_')[1]
+    color_code = call.data.split('_')[2]
+    color_name = call.data.split('_')[3]
+    user_id = call.message.chat.id
+
+    if user_id not in available_colors:
+        available_colors[user_id] = {
+            'DMC': [],
+            'Anchor': [],
+            'Cosmo': []
+        }
+
+    color_info = floss_colors[color_brand][color_name]
+    color_info['name'] = color_name
+
+    if color_info not in available_colors[user_id][color_brand]:
+        available_colors[user_id][color_brand].append(color_info)
+        bot.send_message(call.message.chat.id, f"Цвет '{color_code}' добавлен.")
+        return
+    available_colors[user_id][color_brand].remove(color_info)
+    bot.send_message(call.message.chat.id, f"Цвет '{color_code}' удалён.")
+
+
+def show_brand_colors(message, brand):
+    temp_dir = 'temp_colors'
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
+    output_path = f"{temp_dir}/{message.chat.id}.png"
+
+    user_id = message.chat.id
+
+    if not available_colors[user_id][brand]:
+        bot.send_message(user_id, f"Пока что не добавлено ни одного цвета бренда {brand}.")
+        return
+
+    create_color_grid(brand, available_colors[user_id][brand], output_path)
+
+    # Отправляем изображение с сеткой цветов
+    with open(output_path, 'rb') as photo:
+        caption = f"Добавленные цвета бренда {brand}"
+        bot.send_photo(message.chat.id, photo, caption=caption)
+
+    # Удаляем временный файл
+    os.remove(output_path)
+
+
+def show_color_brands(message):
+    for brand in ('DMC', 'Anchor', 'Cosmo'):
+        show_brand_colors(message, brand)
 
 
 # Отправка списка фотографий пользователю
