@@ -5,12 +5,13 @@ import telebot
 from telebot import types
 from PIL import Image
 from pixelate import pixelate
+from make_legend import make_legend_image
 import os
 from color_show import show_color, save_color_sample, create_color_grid
 from color_data import floss_colors, color_groups, RGB
 
 # Укажите здесь токен вашего бота
-API_TOKEN = '7860027518:AAF-l2_PMQh_QwiFPwmsNfWit1NXIP4WCyM'
+API_TOKEN = '8174585257:AAHIAJbSk_SqWaf-2MD-wTECq_aVi9INGcs'
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -129,6 +130,7 @@ def handle_photo(message):
 
     # Пикселизируем изображение
     pixelated_image = pixelate(image, available_colors=RGB)
+    legend_image = make_legend_image(pixelated_image)
 
     # Сохраняем пикселизированное изображение во временный файл
     output_io = BytesIO()
@@ -139,6 +141,15 @@ def handle_photo(message):
     bot.send_message(user_id, "Схема на основе всех возможных цветов:")
     bot.send_photo(user_id, output_io)
 
+    # Сохраняем легенду во временный файл
+    output_io = BytesIO()
+    legend_image.save(output_io, format='JPEG')
+    output_io.seek(0)
+
+    # Отправляем легенду пользователю
+    bot.send_message(user_id, "Легенда:")
+    bot.send_photo(user_id, output_io)
+
 
 
     # Пикселизация только по доступным цветам
@@ -147,6 +158,7 @@ def handle_photo(message):
         return
 
     pixelated_image = pixelate(image, available_colors=available_rgbs)
+    legend_image = make_legend_image(pixelated_image)
 
     # Сохраняем пикселизированное изображение во временный файл
     output_io = BytesIO()
@@ -156,6 +168,16 @@ def handle_photo(message):
     # Отправляем пикселизированное изображение пользователю
     bot.send_message(user_id, "Схема на основе Ваших цветов:")
     bot.send_photo(user_id, output_io)
+
+     # Сохраняем легенду во временный файл
+    output_io = BytesIO()
+    legend_image.save(output_io, format='JPEG')
+    output_io.seek(0)
+
+    # Отправляем легенду пользователю
+    bot.send_message(user_id, "Легенда:")
+    bot.send_photo(user_id, output_io)
+
 
 
 def add_color_brands(message):
