@@ -150,8 +150,6 @@ def handle_photo(message):
     bot.send_message(user_id, "Легенда:")
     bot.send_photo(user_id, output_io)
 
-
-
     # Пикселизация только по доступным цветам
     if not available_rgbs:
         bot.send_message(user_id, "Сформировать схему на основе ваших цветов невозможно. Вы не добавили ни одного цвета.")

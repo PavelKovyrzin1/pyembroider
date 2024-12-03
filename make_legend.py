@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 from color_data import floss_colors
 
+
 def make_legend_image(image):
     # Создаем пустое множество для хранения уникальных RGB значений
     unique_colors = set()

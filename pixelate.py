@@ -1,4 +1,5 @@
 from PIL import Image
+from collections import Counter
 
 
 def closest_color(requested_color, available_colors):
@@ -9,6 +10,30 @@ def closest_color(requested_color, available_colors):
     closest_color = min(available_colors,
                         key=lambda color: (color[0] - r) ** 2 + (color[1] - g) ** 2 + (color[2] - b) ** 2)
     return closest_color
+
+
+def replace_rare_colors(image, available_colors, rarity_threshold=0.0001):
+    """
+    Заменяет все редко встречающиеся цвета (меньше порога rarity_threshold) на похожие часто встречающиеся цвета.
+    """
+    pixels = list(image.getdata())  # Получаем все пиксели изображения как [(r, g, b), ...]
+    total_pixels = len(pixels)  # Общее количество пикселей
+    color_counts = Counter(pixels)  # Считаем количество каждого цвета
+
+    # Разделяем цвета на два списка: редкие и частые
+    rare_colors = {color: count for color, count in color_counts.items() if count / total_pixels < rarity_threshold}
+    frequent_colors = {color: count for color, count in color_counts.items() if count / total_pixels >= rarity_threshold}
+
+    new_color_map = {}
+    for rare_color in rare_colors:
+        # Находим ближайший частый цвет
+        new_color = closest_color(rare_color, frequent_colors.keys())
+        new_color_map[rare_color] = new_color
+
+    new_image_data = [new_color_map.get(pixel, pixel) for pixel in pixels]  # Заменяем редкие цвета
+    image.putdata(new_image_data)  # Обновляем пиксели изображения
+
+    return image
 
 
 def pixelate(image, available_colors, margin_thickness=1):
@@ -32,6 +57,9 @@ def pixelate(image, available_colors, margin_thickness=1):
             current_color = image.getpixel((x, y))
             new_color = closest_color(current_color, available_colors)
             image.putpixel((x, y), new_color)
+
+    # Заменяем редкие цвета на более частые
+    image = replace_rare_colors(image, available_colors)
 
     image = image.resize((image.size[0] * pixel_size, image.size[1] * pixel_size), Image.NEAREST)
     pixel = image.load()
