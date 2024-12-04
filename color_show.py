@@ -92,8 +92,3 @@ def save_color_sample(brand: str, color_name: str, output_path: str, size: tuple
     """
     img = show_color(brand, color_name, size)
     img.save(output_path)
-
-# Пример использования:
-if __name__ == "__main__":
-    # Показать образец красного цвета DMC
-    save_color_sample('DMC', 'Bright Red', 'color_sample.png')
