@@ -16,17 +16,17 @@ def make_legend_image(image, available_rgbs):
     if (0, 0, 0) not in available_rgbs:
         unique_colors.remove((0, 0, 0))
 
-    square_size = 75  # размер квадрата
+    square_size = 140  # размер квадрата
     padding = 10  # отступ между квадратами
     image_width = 1920  # ширина изображения
-    image_height = 1080  # высота изображения
+    image_height = 2551  # высота изображения
 
     image = Image.new("RGB", (image_width, image_height), "white")
     draw = ImageDraw.Draw(image)
 
     # Шрифт
     try:
-        font = ImageFont.truetype("arial.ttf", 25)
+        font = ImageFont.truetype("arial.ttf", 30)
     except IOError:
         font = ImageFont.load_default()
 

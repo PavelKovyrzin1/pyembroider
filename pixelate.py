@@ -22,7 +22,8 @@ def replace_rare_colors(image, available_colors, rarity_threshold=0.0001):
 
     # Разделяем цвета на два списка: редкие и частые
     rare_colors = {color: count for color, count in color_counts.items() if count / total_pixels < rarity_threshold}
-    frequent_colors = {color: count for color, count in color_counts.items() if count / total_pixels >= rarity_threshold}
+    frequent_colors = {color: count for color, count in color_counts.items() if
+                       count / total_pixels >= rarity_threshold}
 
     new_color_map = {}
     for rare_color in rare_colors:

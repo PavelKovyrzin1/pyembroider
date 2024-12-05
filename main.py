@@ -1,17 +1,16 @@
-import uuid
+import os
 import re
+import uuid
 from io import BytesIO
+
+from PIL import Image
 import telebot
 from telebot import types
-from PIL import Image
-from pixelate import pixelate
-from make_legend import make_legend_image
-import os
 
-from color_show import create_color_grid
 from color_data import floss_colors, color_groups, RGB
 from color_process import get_available_rgbs, show_color_brands, show_color_groups, add_color_brands
-from process_images import send_photo_list
+from color_show import create_color_grid
+from process_images import send_photo_list, create_scheme
 
 API_TOKEN = '8174585257:AAHIAJbSk_SqWaf-2MD-wTECq_aVi9INGcs'
 
@@ -111,28 +110,18 @@ def handle_photo(message):
 
     image = Image.open(BytesIO(downloaded_file))
 
-    # Извлечение доступных пользователю цветов
-    available_rgbs = get_available_rgbs(available_colors, user_id)
-
-    # Пикселизация
-    pixelated_image = pixelate(image, available_colors=RGB)
-    legend_image = make_legend_image(pixelated_image, RGB)
-
-    # Сохранение и отправка изображения
-    output_io = BytesIO()
-    pixelated_image.save(output_io, format='JPEG')
-    output_io.seek(0)
+    filename = f"Scheme_{os.path.basename(file_path)}.pdf"
+    create_scheme(image, RGB, filename)
 
     bot.send_message(user_id, "Схема на основе всех возможных цветов:")
-    bot.send_photo(user_id, output_io)
 
-    # Легенда
-    output_io = BytesIO()
-    legend_image.save(output_io, format='JPEG')
-    output_io.seek(0)
+    with open(filename, 'rb') as pdf_file:
+        bot.send_document(user_id, pdf_file)
 
-    bot.send_message(user_id, "Легенда:")
-    bot.send_photo(user_id, output_io)
+    os.remove(filename)
+
+    # Извлечение доступных пользователю цветов
+    available_rgbs = get_available_rgbs(available_colors, user_id)
 
     # Пикселизация только по доступным цветам
     if not available_rgbs:
@@ -140,24 +129,14 @@ def handle_photo(message):
                          "Сформировать схему на основе ваших цветов невозможно. Вы не добавили ни одного цвета.")
         return
 
-    # Пикселизация
-    pixelated_image = pixelate(image, available_colors=available_rgbs)
-    legend_image = make_legend_image(pixelated_image, available_rgbs)
-
-    output_io = BytesIO()
-    pixelated_image.save(output_io, format='JPEG')
-    output_io.seek(0)
+    create_scheme(image, available_rgbs, filename)
 
     bot.send_message(user_id, "Схема на основе Ваших цветов:")
-    bot.send_photo(user_id, output_io)
 
-    # Легенда
-    output_io = BytesIO()
-    legend_image.save(output_io, format='JPEG')
-    output_io.seek(0)
+    with open(filename, 'rb') as pdf_file:
+        bot.send_document(user_id, pdf_file)
 
-    bot.send_message(user_id, "Легенда:")
-    bot.send_photo(user_id, output_io)
+    os.remove(filename)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('brand_'))
@@ -271,6 +250,24 @@ def handle_callback(call):
             bot.send_message(user_id, "Файл не найден. Возможно, он уже был удален.")
 
     bot.answer_callback_query(call.id)
+
+
+# Обработчик для видео
+@bot.message_handler(content_types=['video'])
+def video_handler(message):
+    bot.send_message(message.chat.id, "Формат видео не поддерживается. Пожалуйста, отправьте изображение.")
+
+
+# Обработчик для GIF
+@bot.message_handler(content_types=['animation'])
+def gif_handler(message):
+    bot.send_message(message.chat.id, "Формат GIF не поддерживается. Пожалуйста, отправьте изображение.")
+
+
+# Обработчик для GIF
+@bot.message_handler(content_types=['document'])
+def gif_handler(message):
+    bot.send_message(message.chat.id, "Формат файлов не поддерживается. Пожалуйста, отправьте изображение.")
 
 
 # Основной обработчик ошибок и прочих типов сообщений

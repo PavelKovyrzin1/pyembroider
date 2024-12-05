@@ -27,7 +27,7 @@ def show_brand_colors(bot, message, brand, available_colors):
 
     user_id = message.chat.id
 
-    if not available_colors[user_id][brand]:
+    if not user_id in available_colors or not available_colors[user_id][brand]:
         bot.send_message(user_id, f"Пока что не добавлено ни одного цвета бренда {brand}.")
         return
 
@@ -62,6 +62,7 @@ def show_color_groups(bot, message, brand):
         reply_markup=keyboard
     )
 
+
 def add_color_brands(bot, message):
     """Показывает доступные бренды ниток"""
     keyboard = types.InlineKeyboardMarkup()
@@ -70,4 +71,3 @@ def add_color_brands(bot, message):
         keyboard.add(callback_button)
 
     bot.send_message(message.chat.id, "Выберите бренд ниток:", reply_markup=keyboard)
-
