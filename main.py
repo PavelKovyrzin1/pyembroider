@@ -8,16 +8,17 @@ import telebot
 from telebot import types
 
 from color_data import floss_colors, color_groups, RGB
-from color_process import get_available_rgbs, show_color_brands, show_color_groups, add_color_brands
+from color_process import show_color_brands, show_color_groups, add_color_brands
 from color_show import create_color_grid
+from colors_database import *
 from process_images import send_photo_list, create_scheme
 
 API_TOKEN = '8174585257:AAHIAJbSk_SqWaf-2MD-wTECq_aVi9INGcs'
 
 bot = telebot.TeleBot(API_TOKEN)
 
-# Словарь для сохранения выбранных кодов цветов
-available_colors = {}
+db_name = "colors.db"
+create_database(db_name)
 
 
 # Обработчик команды /start
@@ -68,7 +69,7 @@ def handle_text(message):
     elif message.text == "🌈 Добавить цвета":
         add_color_brands(bot, message)
     elif message.text == "✅ Показать добавленные цвета":
-        show_color_brands(bot, message, available_colors)
+        show_color_brands(bot, message)
     else:
         bot.send_message(user_id, "Пожалуйста, используйте кнопки меню для взаимодействия.")
 
@@ -121,7 +122,7 @@ def handle_photo(message):
     os.remove(filename)
 
     # Извлечение доступных пользователю цветов
-    available_rgbs = get_available_rgbs(available_colors, user_id)
+    available_rgbs = get_user_colors(db_name, user_id)
 
     # Пикселизация только по доступным цветам
     if not available_rgbs:
@@ -203,21 +204,15 @@ def handle_color_selection(call):
     color_name = call.data.split('_')[3]
     user_id = call.message.chat.id
 
-    if user_id not in available_colors:
-        available_colors[user_id] = {
-            'DMC': [],
-            'Anchor': [],
-            'Cosmo': []
-        }
-
     color_info = floss_colors[color_brand][color_name]
     color_info['name'] = color_name
 
-    if color_info not in available_colors[user_id][color_brand]:
-        available_colors[user_id][color_brand].append(color_info)
+    if not check_user_color_exists(db_name, user_id, color_brand, color_code):
+        add_user_color(db_name, user_id, color_brand, color_code)
         bot.send_message(call.message.chat.id, f"Цвет '{color_code}' добавлен.")
         return
-    available_colors[user_id][color_brand].remove(color_info)
+
+    delete_user_color(db_name, user_id, color_brand, color_code)
     bot.send_message(call.message.chat.id, f"Цвет '{color_code}' удалён.")
 
 

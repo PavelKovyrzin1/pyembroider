@@ -2,36 +2,26 @@ from telebot import types
 import os
 
 from color_show import create_color_grid
-from color_data import floss_colors, color_groups, RGB
+from color_data import floss_colors, color_groups, transformed_color_data
+from colors_database import *
 
 
-def get_available_rgbs(available_colors, user_id):
-    """Извлечение доступных пользователю цветов"""
-    available_rgbs = []
-    for brand in ('DMC', 'Anchor', 'Cosmo'):
-        if user_id not in available_colors:
-            break
-        for color in available_colors[user_id][brand]:
-            available_rgbs.append(color['rgb'])
-
-    return available_rgbs
-
-
-def show_brand_colors(bot, message, brand, available_colors):
+def show_brand_colors(bot, message, brand):
     """Отправляет сетку выбранных пользователем цветов данного бренда"""
     temp_dir = 'temp_colors'
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
 
     output_path = f"{temp_dir}/{message.chat.id}.png"
-
     user_id = message.chat.id
+    colors = get_user_colors_by_brand("colors.db", user_id, brand)
 
-    if not user_id in available_colors or not available_colors[user_id][brand]:
+    if len(colors) == 0:
         bot.send_message(user_id, f"Пока что не добавлено ни одного цвета бренда {brand}.")
         return
 
-    create_color_grid(brand, available_colors[user_id][brand], output_path)
+    available_colors = [transformed_color_data[color] for color in colors]
+    create_color_grid(brand, available_colors, output_path)
 
     with open(output_path, 'rb') as photo:
         caption = f"Добавленные цвета бренда {brand}"
@@ -40,9 +30,9 @@ def show_brand_colors(bot, message, brand, available_colors):
     os.remove(output_path)
 
 
-def show_color_brands(bot, message, available_colors):
+def show_color_brands(bot, message):
     for brand in ('DMC', 'Anchor', 'Cosmo'):
-        show_brand_colors(bot, message, brand, available_colors)
+        show_brand_colors(bot, message, brand)
 
 
 def show_color_groups(bot, message, brand):
