@@ -1,17 +1,20 @@
-from telebot import types
 import os
 import aspose.words as aw
 from io import BytesIO
+from PIL import Image
+from typing import List, Tuple
+
+from aiogram import Bot, types
 
 from pixelate import pixelate
 from make_legend import make_legend_image
 
 
 # Отправка списка фотографий пользователю
-def send_photo_list(bot, user_id):
-    user_folder = f'photos/{user_id}'
+async def send_photo_list(bot: Bot, user_id: int) -> None:
+    user_folder = f'../photos/{user_id}'
     if not os.path.exists(user_folder) or not os.listdir(user_folder):
-        bot.send_message(user_id, "У вас пока нет сохранённых фотографий.")
+        await bot.send_message(user_id, "У вас пока нет сохранённых фотографий.")
         return
 
     photo_list = os.listdir(user_folder)
@@ -23,13 +26,13 @@ def send_photo_list(bot, user_id):
         delete_button = types.InlineKeyboardButton(f"❌ Удалить {photo}", callback_data=f"delete_{photo}")
         keyboard.add(view_button, delete_button)
 
-    bot.send_message(user_id, "Выберите действие с фото:", reply_markup=keyboard)
+    await bot.send_message(user_id, "Выберите действие с фото:", reply_markup=keyboard)
 
 
-def create_scheme(image, available_colors, filename):
+async def create_scheme(image: Image, available_colors: List[Tuple], filename: str) -> None:
     # Пикселизация
-    pixelated_image = pixelate(image, available_colors=available_colors)
-    legend_image = make_legend_image(pixelated_image, available_colors)
+    pixelated_image = await pixelate(image, available_colors=available_colors)
+    legend_image = await make_legend_image(pixelated_image, available_colors)
 
     # Сохранение и отправка изображения
     output_io = BytesIO()
