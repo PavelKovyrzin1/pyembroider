@@ -1,9 +1,10 @@
 import sqlite3
+from typing import List, Tuple
 
 from color_data import transformed_color_data
 
 
-def create_database(db_name: str):
+def create_database(db_name: str) -> None:
     """Создать базу данных и таблицу для цветов с пользователями."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
@@ -18,7 +19,7 @@ def create_database(db_name: str):
         conn.commit()
 
 
-def check_user_color_exists(db_name: str, user_id: int, brand: str, color_code: str) -> bool:
+async def check_user_color_exists(db_name: str, user_id: int, brand: str, color_code: str) -> bool:
     """Проверить наличие записи по user_id, бренду и коду цвета."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
@@ -27,7 +28,7 @@ def check_user_color_exists(db_name: str, user_id: int, brand: str, color_code: 
         return cursor.fetchone() is not None
 
 
-def delete_user_color(db_name: str, user_id: int, brand: str, color_code: str):
+async def delete_user_color(db_name: str, user_id: int, brand: str, color_code: str) -> None:
     """Удалить запись о цвете пользователя по ID, бренду и коду цвета."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
@@ -36,7 +37,7 @@ def delete_user_color(db_name: str, user_id: int, brand: str, color_code: str):
         conn.commit()
 
 
-def add_user_color(db_name: str, user_id: int, brand: str, color_code: str):
+async def add_user_color(db_name: str, user_id: int, brand: str, color_code: str) -> None:
     """Добавить запись о цвете, который пользователь добавил."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
@@ -45,8 +46,8 @@ def add_user_color(db_name: str, user_id: int, brand: str, color_code: str):
         conn.commit()
 
 
-def get_user_colors(db_name: str, user_id: int):
-    """Получить все любимые цвета пользователя по его ID."""
+async def get_user_colors(db_name: str, user_id: int) -> List[Tuple]:
+    """Получить все цвета пользователя по его ID."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT brand, color_code FROM user_colors WHERE user_id = ?', (user_id,))
@@ -54,7 +55,7 @@ def get_user_colors(db_name: str, user_id: int):
         return [transformed_color_data[color]['rgb'] for color in colors]
 
 
-def get_user_colors_by_brand(db_name: str, user_id: int, brand: str):
+async def get_user_colors_by_brand(db_name: str, user_id: int, brand: str) -> List[Tuple]:
     """Получить все цвета пользователя по его ID."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
